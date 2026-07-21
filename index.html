@@ -138,6 +138,8 @@
   let API = null;
   let currentObjects = []; // [{modelId, obj: ObjectProperties, bbox?: {x,y,z}}]
   let placedMarkupIds = [];
+  let selectedPropertyKey = ''; // authoritative choice, kept outside the DOM so it survives rebuilds/races
+  let loadSeq = 0; // guards against overlapping loadObjects() calls (rapid selection changes)
 
   const connStatusEl = document.getElementById('connStatus');
   const loadedCountEl = document.getElementById('loadedCount');
@@ -161,7 +163,10 @@
     });
   });
 
-  propSelectEl.addEventListener('change', updatePreview);
+  propSelectEl.addEventListener('change', ()=>{
+    selectedPropertyKey = propSelectEl.value;
+    updatePreview();
+  });
 
   function updatePreview(){
     const key = propSelectEl.value;
@@ -217,18 +222,19 @@
   }
 
   async function loadObjects(sel){
-    currentObjects = [];
+    const seq = ++loadSeq; // this call's ticket number
+    const collected = [];
     for (const entry of (sel||[])){
       const ids = entry.objectRuntimeIds || [];
       if (ids.length === 0) continue;
       const props = await API.viewer.getObjectProperties(entry.modelId, ids);
-      for (const p of props) currentObjects.push({ modelId: entry.modelId, obj: p });
+      for (const p of props) collected.push({ modelId: entry.modelId, obj: p });
 
       if (document.getElementById('placementSelect').value === 'bbox'){
         const boxes = await API.viewer.getObjectBoundingBoxes(entry.modelId, ids);
         const byId = {};
         boxes.forEach(b => byId[b.id] = b.boundingBox);
-        currentObjects.forEach(co => {
+        collected.forEach(co => {
           if (co.modelId === entry.modelId && byId[co.obj.id]){
             const bb = byId[co.obj.id];
             co.bbox = {
@@ -240,9 +246,25 @@
         });
       }
     }
+
+    // If a newer selection change started (and possibly already finished) while
+    // we were awaiting the API, this result is stale — discard it so it can't
+    // clobber the dropdown / object list with outdated data.
+    if (seq !== loadSeq) return;
+
+    currentObjects = collected;
     loadedCountEl.innerHTML = '<span class="count-pill">' + currentObjects.length + ' objet(s)</span>';
     buildPropertyOptions();
     setActionStatus(currentObjects.length ? (currentObjects.length + ' objet(s) chargé(s), prêt à afficher.') : 'Aucun objet trouvé.', currentObjects.length ? 'ok' : 'warn');
+  }
+
+  function formatLabelForKey(key){
+    if (key === '__class__') return 'Classe IFC';
+    if (key === '__productName__') return 'Nom du produit';
+    if (key === '__id__') return 'Identifiant (ID objet)';
+    const parts = key.split('::');
+    const setName = parts[0], propName = parts[1];
+    return setName ? (setName + ' · ' + propName) : propName;
   }
 
   function buildPropertyOptions(){
@@ -259,10 +281,23 @@
     addOption('__productName__', 'Nom du produit');
     addOption('__id__', 'Identifiant (ID objet)');
     Array.from(keys).sort().forEach(k=>{
-      const parts = k.split('::');
-      const setName = parts[0], propName = parts[1];
-      addOption(k, setName ? (setName + ' · ' + propName) : propName);
+      addOption(k, formatLabelForKey(k));
     });
+
+    // Restore the previously chosen property from the persistent variable (not from
+    // the DOM, which may have been reset mid-flight by an overlapping selection
+    // change), even if it isn't present on this particular set of objects.
+    if (selectedPropertyKey){
+      const exists = Array.from(propSelectEl.options).some(o => o.value === selectedPropertyKey);
+      if (!exists){
+        addOption(selectedPropertyKey, formatLabelForKey(selectedPropertyKey) + ' (absente de la sélection actuelle)');
+      }
+      propSelectEl.value = selectedPropertyKey;
+    } else {
+      // First time: remember whatever ended up selected by default.
+      selectedPropertyKey = propSelectEl.value;
+    }
+
     updatePreview();
   }
 
