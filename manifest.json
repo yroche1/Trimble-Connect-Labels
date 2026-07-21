@@ -1,0 +1,7 @@
+{
+  "url": "https://VOTRE-DOMAINE.example.com/index.html",
+  "title": "Étiquettes de propriétés - Charpente",
+  "icon": "https://VOTRE-DOMAINE.example.com/icon.png",
+  "description": "Affiche la valeur d'une propriété choisie en texte directement sur les barres de charpente métallique dans le visualiseur 3D.",
+  "enabled": true
+}

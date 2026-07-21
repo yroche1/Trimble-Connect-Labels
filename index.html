@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Étiquettes de propriétés — Charpente métallique</title>
+<style>
+  :root{
+    --bg:#f4f5f7; --panel:#ffffff; --text:#1f2430; --muted:#6b7280;
+    --accent:#0b5fff; --accent-dark:#0847c4; --border:#e2e5ea; --ok:#1a7f37; --warn:#b45309;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;
+    background:var(--bg); color:var(--text); font-size:13px;
+  }
+  #app{ padding:12px 14px 24px; max-width:480px; }
+  h1{ font-size:15px; margin:0 0 2px; font-weight:600; }
+  .subtitle{ color:var(--muted); font-size:12px; margin:0 0 12px; }
+  .card{
+    background:var(--panel); border:1px solid var(--border); border-radius:10px;
+    padding:12px 14px; margin-bottom:10px;
+  }
+  .card h2{ font-size:12px; text-transform:uppercase; letter-spacing:.03em; color:var(--muted); margin:0 0 10px; font-weight:700; }
+  label{ display:block; font-size:12px; font-weight:600; margin-bottom:4px; }
+  select, input[type=text]{
+    width:100%; padding:7px 8px; border:1px solid var(--border); border-radius:6px;
+    font-size:13px; background:#fff; color:var(--text);
+  }
+  .row{ display:flex; gap:8px; margin-bottom:8px; }
+  .row > div{ flex:1; }
+  .radio-group{ display:flex; gap:14px; margin-bottom:8px; }
+  .radio-group label{ display:flex; align-items:center; gap:5px; font-weight:500; margin:0; }
+  .radio-group input{ margin:0; }
+  button{
+    border:none; border-radius:7px; padding:8px 14px; font-size:13px; font-weight:600;
+    cursor:pointer; transition:opacity .15s;
+  }
+  button:hover{ opacity:.9; }
+  button:disabled{ opacity:.45; cursor:not-allowed; }
+  .btn-primary{ background:var(--accent); color:#fff; }
+  .btn-secondary{ background:#eef0f4; color:var(--text); }
+  .btn-danger{ background:#fdeeee; color:#b42318; }
+  .btn-row{ display:flex; gap:8px; flex-wrap:wrap; }
+  .color-row{ display:flex; align-items:center; gap:8px; }
+  input[type=color]{ width:38px; height:30px; padding:0; border:1px solid var(--border); border-radius:6px; cursor:pointer; }
+  .status{
+    font-size:12px; padding:8px 10px; border-radius:7px; background:#eef2ff; color:#334155;
+    min-height:16px; line-height:1.5;
+  }
+  .status.ok{ background:#ecfdf3; color:var(--ok); }
+  .status.warn{ background:#fff7ed; color:var(--warn); }
+  .hint{ font-size:11px; color:var(--muted); margin-top:5px; line-height:1.4; }
+  .count-pill{
+    display:inline-block; background:var(--accent); color:#fff; font-size:11px; font-weight:700;
+    padding:1px 8px; border-radius:999px; margin-left:6px;
+  }
+  .checkbox-row{ display:flex; align-items:center; gap:6px; margin-top:6px; }
+  .checkbox-row input{ margin:0; }
+  .checkbox-row label{ margin:0; font-weight:500; }
+  .preview{ font-size:12px; color:var(--muted); margin-top:6px; font-family:monospace; word-break:break-all; }
+</style>
+</head>
+<body>
+<div id="app">
+  <h1>Étiquettes de propriétés</h1>
+  <p class="subtitle">Affiche la valeur d'une propriété en texte sur les barres de charpente métallique, directement dans le visualiseur 3D.</p>
+
+  <div class="card">
+    <h2>Connexion</h2>
+    <div id="connStatus" class="status">Connexion à Trimble Connect en cours…</div>
+  </div>
+
+  <div class="card">
+    <h2>1. Choix des barres</h2>
+    <div class="radio-group">
+      <label><input type="radio" name="mode" value="selection" checked> Sélection actuelle</label>
+      <label><input type="radio" name="mode" value="filter"> Filtrer par classe</label>
+    </div>
+    <div id="filterBlock" style="display:none;">
+      <label>Classes IFC (séparées par des virgules)</label>
+      <input type="text" id="classFilter" value="IfcBeam, IfcColumn, IfcMember" />
+      <div class="hint">Exemples courants pour de la charpente métallique : IfcBeam, IfcColumn, IfcMember, IfcPlate. Adaptez selon la nomenclature de votre modèle (ex. export Tekla).</div>
+    </div>
+    <div class="checkbox-row">
+      <input type="checkbox" id="autoMode" />
+      <label for="autoMode">Recharger automatiquement à chaque changement de sélection</label>
+    </div>
+    <div class="btn-row" style="margin-top:10px;">
+      <button class="btn-secondary" id="loadBtn">Charger les objets</button>
+      <span id="loadedCount"></span>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>2. Propriété à afficher</h2>
+    <select id="propSelect"><option value="">— Chargez d'abord des objets —</option></select>
+    <div class="preview" id="previewLine"></div>
+  </div>
+
+  <div class="card">
+    <h2>3. Apparence</h2>
+    <div class="row">
+      <div>
+        <label>Préfixe</label>
+        <input type="text" id="prefixInput" placeholder="ex. L=" />
+      </div>
+      <div>
+        <label>Suffixe</label>
+        <input type="text" id="suffixInput" placeholder="ex.  mm" />
+      </div>
+    </div>
+    <label>Couleur du texte</label>
+    <div class="color-row">
+      <input type="color" id="colorInput" value="#d13438" />
+      <span class="hint" style="margin:0;">L'API Trimble Connect ne permet pas de régler la taille du texte des étiquettes ; seule la couleur est configurable.</span>
+    </div>
+    <label style="margin-top:10px;">Point de placement</label>
+    <select id="placementSelect">
+      <option value="origin">Origine de l'objet</option>
+      <option value="bbox">Centre de la boîte englobante</option>
+    </select>
+  </div>
+
+  <div class="card">
+    <h2>4. Action</h2>
+    <div class="btn-row">
+      <button class="btn-primary" id="showBtn">Afficher les étiquettes</button>
+      <button class="btn-danger" id="clearBtn">Effacer les étiquettes</button>
+    </div>
+    <div id="actionStatus" class="status" style="margin-top:10px;"></div>
+  </div>
+</div>
+
+<script src="https://components.connect.trimble.com/trimble-connect-workspace-api/index.js"></script>
+<script>
+(function(){
+  let API = null;
+  let currentObjects = []; // [{modelId, obj: ObjectProperties, bbox?: {x,y,z}}]
+  let placedMarkupIds = [];
+
+  const connStatusEl = document.getElementById('connStatus');
+  const loadedCountEl = document.getElementById('loadedCount');
+  const propSelectEl = document.getElementById('propSelect');
+  const previewLineEl = document.getElementById('previewLine');
+  const actionStatusEl = document.getElementById('actionStatus');
+  const filterBlockEl = document.getElementById('filterBlock');
+
+  function setConnStatus(msg, cls){
+    connStatusEl.textContent = msg;
+    connStatusEl.className = 'status' + (cls ? ' ' + cls : '');
+  }
+  function setActionStatus(msg, cls){
+    actionStatusEl.textContent = msg;
+    actionStatusEl.className = 'status' + (cls ? ' ' + cls : '');
+  }
+
+  document.querySelectorAll('input[name=mode]').forEach(r=>{
+    r.addEventListener('change', ()=>{
+      filterBlockEl.style.display = document.querySelector('input[name=mode]:checked').value === 'filter' ? 'block' : 'none';
+    });
+  });
+
+  propSelectEl.addEventListener('change', updatePreview);
+
+  function updatePreview(){
+    const key = propSelectEl.value;
+    if (!key || currentObjects.length === 0){ previewLineEl.textContent = ''; return; }
+    const val = getPropValue(currentObjects[0].obj, key);
+    previewLineEl.textContent = 'Exemple (1er objet) : ' + (val || '(valeur vide)');
+  }
+
+  function countIds(sel){
+    return (sel||[]).reduce((acc,s)=>acc + ((s.objectRuntimeIds||[]).length), 0);
+  }
+
+  async function onEvent(event, data){
+    if (event === 'viewer.onSelectionChanged'){
+      const n = countIds(data && data.data);
+      if (document.querySelector('input[name=mode]:checked').value === 'selection'){
+        loadedCountEl.innerHTML = n ? ('<span class="count-pill">' + n + ' sélectionné(s)</span>') : '';
+      }
+      if (document.getElementById('autoMode').checked && document.querySelector('input[name=mode]:checked').value === 'selection'){
+        loadFromSelection();
+      }
+    }
+  }
+
+  async function init(){
+    try{
+      API = await TrimbleConnectWorkspace.connect(window.parent, onEvent, 30000);
+      setConnStatus('Connecté à Trimble Connect.', 'ok');
+    }catch(e){
+      setConnStatus('Échec de connexion à Trimble Connect : ' + e.message, 'warn');
+    }
+  }
+
+  async function loadFromSelection(){
+    const sel = await API.viewer.getSelection();
+    await loadObjects(sel);
+  }
+
+  async function loadFromFilter(){
+    const raw = document.getElementById('classFilter').value;
+    const classes = raw.split(',').map(s=>s.trim()).filter(Boolean);
+    if (classes.length === 0){ setActionStatus('Indiquez au moins une classe à filtrer.', 'warn'); return; }
+    const merged = {}; // modelId -> Set(ids)
+    for (const cls of classes){
+      const results = await API.viewer.getObjects({ parameter: { class: cls } });
+      for (const mo of (results||[])){
+        merged[mo.modelId] = merged[mo.modelId] || new Set();
+        for (const o of (mo.objects||[])) merged[mo.modelId].add(o.id);
+      }
+    }
+    const sel = Object.entries(merged).map(([modelId, ids]) => ({ modelId, objectRuntimeIds: Array.from(ids) }));
+    await loadObjects(sel);
+  }
+
+  async function loadObjects(sel){
+    currentObjects = [];
+    for (const entry of (sel||[])){
+      const ids = entry.objectRuntimeIds || [];
+      if (ids.length === 0) continue;
+      const props = await API.viewer.getObjectProperties(entry.modelId, ids);
+      for (const p of props) currentObjects.push({ modelId: entry.modelId, obj: p });
+
+      if (document.getElementById('placementSelect').value === 'bbox'){
+        const boxes = await API.viewer.getObjectBoundingBoxes(entry.modelId, ids);
+        const byId = {};
+        boxes.forEach(b => byId[b.id] = b.boundingBox);
+        currentObjects.forEach(co => {
+          if (co.modelId === entry.modelId && byId[co.obj.id]){
+            const bb = byId[co.obj.id];
+            co.bbox = {
+              x: (bb.min.x + bb.max.x) / 2,
+              y: (bb.min.y + bb.max.y) / 2,
+              z: (bb.min.z + bb.max.z) / 2
+            };
+          }
+        });
+      }
+    }
+    loadedCountEl.innerHTML = '<span class="count-pill">' + currentObjects.length + ' objet(s)</span>';
+    buildPropertyOptions();
+    setActionStatus(currentObjects.length ? (currentObjects.length + ' objet(s) chargé(s), prêt à afficher.') : 'Aucun objet trouvé.', currentObjects.length ? 'ok' : 'warn');
+  }
+
+  function buildPropertyOptions(){
+    const keys = new Set();
+    for (const { obj } of currentObjects){
+      for (const ps of (obj.properties || [])){
+        for (const p of (ps.properties || [])){
+          keys.add((ps.name || '') + '::' + p.name);
+        }
+      }
+    }
+    propSelectEl.innerHTML = '';
+    addOption('__class__', 'Classe IFC');
+    addOption('__productName__', 'Nom du produit');
+    addOption('__id__', 'Identifiant (ID objet)');
+    Array.from(keys).sort().forEach(k=>{
+      const parts = k.split('::');
+      const setName = parts[0], propName = parts[1];
+      addOption(k, setName ? (setName + ' · ' + propName) : propName);
+    });
+    updatePreview();
+  }
+
+  function addOption(value, label){
+    const opt = document.createElement('option');
+    opt.value = value; opt.textContent = label;
+    propSelectEl.appendChild(opt);
+  }
+
+  function getPropValue(obj, key){
+    if (key === '__class__') return obj.class || '';
+    if (key === '__productName__') return (obj.product && obj.product.name) || '';
+    if (key === '__id__') return String(obj.id);
+    const parts = key.split('::');
+    const setName = parts[0], propName = parts[1];
+    const ps = (obj.properties || []).find(p => (p.name || '') === setName);
+    const prop = ps && ps.properties ? ps.properties.find(pp => pp.name === propName) : null;
+    return prop ? String(prop.value) : '';
+  }
+
+  function hexToRgba(hex){
+    const v = parseInt(hex.replace('#',''), 16);
+    return { r: (v >> 16) & 255, g: (v >> 8) & 255, b: v & 255, a: 255 };
+  }
+
+  async function showLabels(){
+    const key = propSelectEl.value;
+    if (!key){ setActionStatus('Choisissez une propriété à afficher.', 'warn'); return; }
+    if (currentObjects.length === 0){ setActionStatus('Chargez d\'abord des objets (étape 1).', 'warn'); return; }
+    const prefix = document.getElementById('prefixInput').value || '';
+    const suffix = document.getElementById('suffixInput').value || '';
+    const color = hexToRgba(document.getElementById('colorInput').value);
+    const useBbox = document.getElementById('placementSelect').value === 'bbox';
+
+    const markups = [];
+    for (const co of currentObjects){
+      const pos = useBbox && co.bbox ? co.bbox : co.obj.position;
+      if (!pos) continue;
+      const val = getPropValue(co.obj, key);
+      if (!val) continue;
+      const point = { positionX: pos.x * 1000, positionY: pos.y * 1000, positionZ: pos.z * 1000 };
+      markups.push({ start: point, end: point, text: prefix + val + suffix, color: color });
+    }
+    if (markups.length === 0){ setActionStatus('Aucune étiquette générée (positions ou valeurs manquantes pour les objets chargés).', 'warn'); return; }
+
+    try{
+      const added = await API.markup.addTextMarkup(markups);
+      placedMarkupIds.push(...added.map(m=>m.id).filter(id => id !== undefined && id !== null));
+      setActionStatus(added.length + ' étiquette(s) affichée(s) dans le visualiseur.', 'ok');
+    }catch(e){
+      setActionStatus('Erreur lors de l\'affichage : ' + e.message, 'warn');
+    }
+  }
+
+  async function clearLabels(){
+    try{
+      if (placedMarkupIds.length){
+        await API.markup.removeMarkups(placedMarkupIds);
+        placedMarkupIds = [];
+        setActionStatus('Étiquettes créées par cette extension effacées.', 'ok');
+      }else{
+        setActionStatus('Aucune étiquette suivie par cette extension à effacer.', 'warn');
+      }
+    }catch(e){
+      setActionStatus('Erreur lors de l\'effacement : ' + e.message, 'warn');
+    }
+  }
+
+  document.getElementById('loadBtn').addEventListener('click', ()=>{
+    const mode = document.querySelector('input[name=mode]:checked').value;
+    if (mode === 'selection') loadFromSelection(); else loadFromFilter();
+  });
+  document.getElementById('showBtn').addEventListener('click', showLabels);
+  document.getElementById('clearBtn').addEventListener('click', clearLabels);
+  document.getElementById('placementSelect').addEventListener('change', ()=>{
+    const mode = document.querySelector('input[name=mode]:checked').value;
+    if (currentObjects.length && mode === 'selection') loadFromSelection();
+  });
+
+  init();
+})();
+</script>
+</body>
+</html>
