@@ -1,7 +1,7 @@
 {
-  "url": "https://VOTRE-DOMAINE.example.com/index.html",
+  "url": "https://yroche1.github.io/Trimble-Connect-Labels/index.html",
   "title": "Étiquettes de propriétés - Charpente",
-  "icon": "https://VOTRE-DOMAINE.example.com/icon.png",
+  "icon": "https://yroche1.github.io/Trimble-Connect-Labels/icon.png",
   "description": "Affiche la valeur d'une propriété choisie en texte directement sur les barres de charpente métallique dans le visualiseur 3D.",
   "enabled": true
 }
